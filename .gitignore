@@ -1,0 +1,38 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+sensor_app/**/doc/api/
+sensor_app/**/ios/Flutter/.last_build_id
+sensor_app/**/.dart_tool/
+sensor_app/**/.flutter-plugins
+sensor_app/**/.flutter-plugins-dependencies
+sensor_app/**/.pub-cache/
+sensor_app/**/.pub/
+sensor_app/**/build/
+
+# Symbolication related
+sensor_app/app.*.symbols
+
+# Obfuscation related
+sensor_app/app.*.map.json
+
+# Android Studio will place build artifacts here
+sensor_app/android/app/debug
+sensor_app/android/app/profile
+sensor_app/android/app/release
