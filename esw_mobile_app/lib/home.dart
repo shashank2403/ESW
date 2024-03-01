@@ -1,10 +1,18 @@
+import "dart:developer";
+import 'package:esw_mobile_app/scan_device_list.dart';
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import 'search_handler.dart';
 
-import "home_items.dart";
-
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<List<dynamic>> scannedDevices = [];
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,7 +48,9 @@ class HomePage extends StatelessWidget {
             const SizedBox(
               height: 50.0,
             ),
-            const SearchIcon(),
+            SearchButton(
+              recogDevice: recogDevice,
+            ),
             const SizedBox(
               height: 30.0,
             ),
@@ -52,11 +62,20 @@ class HomePage extends StatelessWidget {
               ),
             ),
             const SizedBox(
-              height: 40.0,
+              height: 80.0,
             ),
+            if (scannedDevices.isNotEmpty) ScanDeviceList(scannedDevices: scannedDevices),
           ],
         ),
       ),
     );
+  }
+
+  void recogDevice(List<dynamic> deviceInfo) {
+    if (!scannedDevices.any((element) => listEquals(element, deviceInfo))) {
+      setState(() {
+        scannedDevices.add(deviceInfo);
+      });
+    }
   }
 }
