@@ -54,105 +54,112 @@ class _MapMenuState extends State<MapMenu> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-        Align(
-          alignment: Alignment.bottomLeft,
-          child: SizedBox(
-            height: 200.0,
-            child: ListView.builder(
-              itemCount: 10,
-              itemBuilder: ((context, index) {
-                return Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        selected[index] = !selected[index];
-                        allSelected = allSelected && selected[index];
-                      });
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                          color: selected[index] ? Colors.lightGreen : Colors.white,
-                          borderRadius: BorderRadius.circular(
-                            20.0,
-                          ),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black, blurRadius: 8.0),
-                          ]),
-                      width: 140.0,
-                      height: 180.0,
-                      child: Center(
-                        child: Text(
-                          "Sensor ${index + 1}",
-                          style: const TextStyle(
-                            fontSize: 17.0,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: SizedBox(
+              height: 200.0,
+              child: ListView.builder(
+                itemCount: 10,
+                itemBuilder: ((context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selected[index] = !selected[index];
+                          allSelected = allSelected && selected[index];
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                            color: selected[index] ? Colors.lightGreen : Colors.white,
+                            borderRadius: BorderRadius.circular(
+                              20.0,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black, blurRadius: 8.0),
+                            ]),
+                        width: 140.0,
+                        height: 180.0,
+                        child: Center(
+                          child: Text(
+                            "Sensor ${index + 1}",
+                            style: const TextStyle(
+                              fontSize: 17.0,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              }),
-              scrollDirection: Axis.horizontal,
+                  );
+                }),
+                scrollDirection: Axis.horizontal,
+              ),
             ),
           ),
-        ),
-        const SizedBox(
-          height: 10.0,
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
+          const SizedBox(
+            height: 10.0,
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      allSelected = !allSelected;
+                      selected.fillRange(0, 10, allSelected);
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 20.0,
+                    ),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40.0), boxShadow: const [
+                      BoxShadow(color: Colors.black, blurRadius: 8.0),
+                    ]),
+                    child: const Text(
+                      "Select all",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 20.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(
+                width: 10.0,
+              ),
+              GestureDetector(
                 onTap: () {
-                  setState(() {
-                    allSelected = !allSelected;
-                    selected.fillRange(0, 10, allSelected);
-                  });
+                  log("Export!");
+                  setState(() {});
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     vertical: 20.0,
                   ),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40.0), boxShadow: const [
-                    BoxShadow(color: Colors.black, blurRadius: 8.0),
-                  ]),
-                  child: const Text(
-                    "Select all",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20.0,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(35.0),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black, blurRadius: 8.0),
+                    ],
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Icon(Icons.share),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(
-              width: 10.0,
-            ),
-            GestureDetector(
-              onTap: () {
-                log("Export!");
-                setState(() {});
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 20.0,
-                ),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(35.0), boxShadow: const [
-                  BoxShadow(color: Colors.black, blurRadius: 8.0),
-                ]),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Icon(Icons.share),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ]),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

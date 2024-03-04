@@ -3,11 +3,16 @@ import "dart:developer";
 import "package:flutter/material.dart";
 
 class ScanDeviceList extends StatefulWidget {
-  const ScanDeviceList({super.key, required this.scannedDevices, required this.selectedDevices, required this.deviceOnPressed});
+  const ScanDeviceList({
+    super.key,
+    required this.scannedDevices,
+    required this.deviceOnPressed,
+    required this.deviceStates,
+  });
 
   final List<List<dynamic>> scannedDevices;
+  final List<DeviceState> deviceStates;
   final Function(int) deviceOnPressed;
-  final Set<int> selectedDevices;
   @override
   State<ScanDeviceList> createState() => _ScanDeviceListState();
 }
@@ -34,14 +39,14 @@ class _ScanDeviceListState extends State<ScanDeviceList> {
               Expanded(
                 child: GestureDetector(
                   onTap: () {
+                    setState(() {
+                      widget.deviceOnPressed(index);
+                    });
                     log("Pressed ${widget.scannedDevices[index][1]}");
-                    widget.deviceOnPressed(index);
-                    setState(() {});
-                    log(widget.selectedDevices.toString());
                   },
                   child: DeviceCard(
                     deviceName: widget.scannedDevices[index][0],
-                    selectionState: widget.selectedDevices.contains(index),
+                    selectionState: widget.deviceStates[index],
                   ),
                 ),
               ),
@@ -57,7 +62,7 @@ class DeviceCard extends StatelessWidget {
   const DeviceCard({super.key, required this.deviceName, required this.selectionState});
 
   final String deviceName;
-  final bool selectionState;
+  final DeviceState selectionState;
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -79,7 +84,7 @@ class DeviceCard extends StatelessWidget {
               blurRadius: 8.0,
             ),
           ],
-          color: selectionState ? Colors.lightGreen : Colors.white,
+          color: getStateColor(selectionState),
         ),
         child: Padding(
           padding: const EdgeInsets.all(18.0),
@@ -103,4 +108,29 @@ class DeviceCard extends StatelessWidget {
       ),
     );
   }
+
+  Color getStateColor(DeviceState state) {
+    switch (state) {
+      case DeviceState.unselected:
+        return Colors.white;
+      case DeviceState.selected:
+        return Colors.lightBlue;
+      case DeviceState.error:
+        return Colors.red;
+      case DeviceState.connecting:
+        return Colors.amber;
+      case DeviceState.connected:
+        return Colors.green;
+      default:
+        return Colors.white;
+    }
+  }
+}
+
+enum DeviceState {
+  unselected,
+  selected,
+  connecting,
+  connected,
+  error,
 }

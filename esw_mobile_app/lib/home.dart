@@ -1,10 +1,11 @@
 import "dart:developer";
+import "package:esw_mobile_app/constants.dart";
 import 'package:esw_mobile_app/scan_device_list.dart';
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_reactive_ble/flutter_reactive_ble.dart";
 import "package:permission_handler/permission_handler.dart";
-import 'search_button.dart';
+import 'function_widgets.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,13 +17,13 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   FlutterReactiveBle flutterReactiveBle = FlutterReactiveBle();
   List<List<dynamic>> scannedDevices = [];
-  Set<int> selectedDevices = {};
+  List<DeviceState> deviceStates = [];
   bool isScanning = false;
-  // bool isConnected = false;
-  // bool isConnecting = false;
-  // bool isDisconnecting = false;
-  // bool isDisconnected = false;
-
+  bool isConnecting = false;
+  bool isConnected = false;
+  String connectedDeviceId = "";
+  String connectedServiceId = "";
+  bool allBleConnected = false;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,29 +80,38 @@ class _HomePageState extends State<HomePage> {
                   height: 35.0,
                 ),
                 GestureDetector(
-                  onTap: () => reset(),
+                  onTap: () => resetBLE(),
                   child: Container(
-                    width: 100,
-                    height: 30,
                     color: Colors.amber,
-                    child: const Text(
-                      "Reset",
-                      textAlign: TextAlign.center,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.0,
+                        vertical: 10.0,
+                      ),
+                      child: Text(
+                        "Reset",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(
                   height: 40.0,
                 ),
-                if (isScanning)
-                  ScanDeviceList(
-                    scannedDevices: scannedDevices,
-                    selectedDevices: selectedDevices,
-                    deviceOnPressed: deviceOnPressed,
-                  ),
+                ScanDeviceList(
+                  scannedDevices: scannedDevices,
+                  deviceOnPressed: deviceOnPressed,
+                  deviceStates: isScanning ? List<DeviceState>.filled(scannedDevices.length, DeviceState.unselected) : deviceStates,
+                ),
               ],
             ),
-            ConnectButton(selectedDevices: selectedDevices),
+            ConnectButton(
+              deviceStates: deviceStates,
+              onPressConnect: startConnecting,
+              onPressProceed: onPressProceed,
+              allBleConnected: allBleConnected,
+            ),
           ],
         ),
       ),
@@ -119,42 +129,64 @@ class _HomePageState extends State<HomePage> {
   }
 
   void startScan() async {
-    setState(() {
-      isScanning = true;
-    });
     log("Starting scan for bluetooth devices!");
     _requestPermissions();
     flutterReactiveBle.scanForDevices(withServices: [], scanMode: ScanMode.lowLatency).listen((device) {
       if (!device.name.startsWith("ESP32_Sensor")) return;
-
-      recogDevice([device.name, device.id, device.serviceUuids]);
+      recogDevice([
+        device.name,
+        device.id,
+        device.serviceUuids,
+      ]);
     }, onError: (error) {
       //code for handling error
       log(error.toString());
+    });
+    setState(() {
+      isScanning = true;
     });
   }
 
   void stopScan() {
     setState(() {
       isScanning = false;
+      deviceStates = List.filled(scannedDevices.length, DeviceState.unselected);
     });
   }
 
-  void reset() {
+  void resetBLE() {
     setState(() {
       scannedDevices.clear();
-      selectedDevices.clear();
+      deviceStates = [];
       flutterReactiveBle.deinitialize();
       isScanning = false;
+      allBleConnected = false;
+      isConnecting = false;
+      isConnected = false;
     });
   }
-  // void startConnecting() {
-  //   for (var idx in selectedDevices) {
-  //     connectToDevice(scannedDevices, serviceUuids)
-  //   }
-  // }
 
-  void connectToDevice(String id, List<Uuid> serviceUuids) {
+  void startConnecting() {
+    isConnecting = true;
+    for (int idx = 0; idx < deviceStates.length; idx++) {
+      if (deviceStates[idx] == DeviceState.selected) {
+        deviceStates[idx] = DeviceState.connecting;
+        connectToDevice(scannedDevices[idx][1], scannedDevices[idx][2], idx);
+      }
+    }
+  }
+
+  void onPressProceed() {
+    for (int idx = 0; idx < deviceStates.length; idx++) {
+      if (deviceStates[idx] == DeviceState.connected) {
+        connectedDeviceId = scannedDevices[idx][1];
+        connectedServiceId = scannedDevices[idx][2];
+      }
+    }
+    log("To fetch data from $connectedDeviceId : $connectedServiceId");
+  }
+
+  void connectToDevice(String id, List<Uuid> serviceUuids, int deviceIndex) {
     log("Connecting to device $id");
     flutterReactiveBle
         .connectToAdvertisingDevice(
@@ -164,6 +196,36 @@ class _HomePageState extends State<HomePage> {
     )
         .listen((ConnectionStateUpdate connectionState) {
       log(connectionState.connectionState.toString());
+      setState(() {
+        switch (connectionState.connectionState) {
+          case DeviceConnectionState.disconnecting:
+            deviceStates[deviceIndex] = DeviceState.error;
+            break;
+          case DeviceConnectionState.connecting:
+            deviceStates[deviceIndex] = DeviceState.connecting;
+            break;
+          case DeviceConnectionState.connected:
+            deviceStates[deviceIndex] = DeviceState.connected;
+            break;
+          default:
+            deviceStates[deviceIndex] = DeviceState.connecting;
+        }
+      });
+    }, onDone: () {
+      log("Device $id connected!");
+      setState(() {
+        deviceStates[deviceIndex] = DeviceState.connected;
+        allBleConnected = true;
+        for (var element in deviceStates) {
+          if (element != DeviceState.connected && element != DeviceState.unselected) {
+            allBleConnected = false;
+            break;
+          }
+        }
+      });
+    }, onError: (dynamic error) {
+      log(error.toString());
+      deviceStates[deviceIndex] = DeviceState.error;
     });
   }
 
@@ -182,54 +244,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   void deviceOnPressed(int index) {
-    if (isScanning) return;
+    if (isScanning || isConnecting) return;
     setState(() {
-      if (selectedDevices.contains(index)) {
-        selectedDevices.remove(index);
+      if (deviceStates[index] == DeviceState.selected) {
+        deviceStates[index] = DeviceState.unselected;
       } else {
-        selectedDevices.add(index);
+        for (int i = 0; i < deviceStates.length; i++) {
+          deviceStates[i] = i == index ? DeviceState.selected : DeviceState.unselected;
+        }
       }
     });
-  }
-}
-
-class ConnectButton extends StatelessWidget {
-  const ConnectButton({
-    super.key,
-    required this.selectedDevices,
-  });
-
-  final Set<int> selectedDevices;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      left: 0,
-      right: 0,
-      bottom: selectedDevices.isEmpty ? -100 : 40,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 60.0),
-        child: Container(
-          height: 70,
-          width: 50,
-          decoration: BoxDecoration(
-            color: Colors.pink,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Center(
-            child: Text(
-              "Connect",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
