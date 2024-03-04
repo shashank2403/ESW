@@ -1,51 +1,63 @@
+import "dart:developer";
+
 import "package:flutter/material.dart";
 
 class ScanDeviceList extends StatefulWidget {
-  const ScanDeviceList({super.key, required this.scannedDevices});
+  const ScanDeviceList({super.key, required this.scannedDevices, required this.selectedDevices, required this.deviceOnPressed});
 
   final List<List<dynamic>> scannedDevices;
+  final Function(int) deviceOnPressed;
+  final Set<int> selectedDevices;
   @override
   State<ScanDeviceList> createState() => _ScanDeviceListState();
 }
 
 class _ScanDeviceListState extends State<ScanDeviceList> {
   @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10.0,
-        ),
-        child: ListView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          shrinkWrap: true,
-          itemCount: widget.scannedDevices.length,
-          itemBuilder: (context, index) {
-            return Row(
-              children: [
-                Expanded(
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10.0,
+      ),
+      child: ListView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
+        itemCount: widget.scannedDevices.length,
+        itemBuilder: (context, index) {
+          return Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    log("Pressed ${widget.scannedDevices[index][1]}");
+                    widget.deviceOnPressed(index);
+                    setState(() {});
+                    log(widget.selectedDevices.toString());
+                  },
                   child: DeviceCard(
                     deviceName: widget.scannedDevices[index][0],
+                    selectionState: widget.selectedDevices.contains(index),
                   ),
                 ),
-              ],
-            );
-          },
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class DeviceCard extends StatefulWidget {
-  const DeviceCard({super.key, required this.deviceName});
+class DeviceCard extends StatelessWidget {
+  const DeviceCard({super.key, required this.deviceName, required this.selectionState});
 
   final String deviceName;
-  @override
-  State<DeviceCard> createState() => _DeviceCardState();
-}
-
-class _DeviceCardState extends State<DeviceCard> {
+  final bool selectionState;
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -55,19 +67,19 @@ class _DeviceCardState extends State<DeviceCard> {
       ),
       child: Container(
         height: 100.0,
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.all(
+        decoration: BoxDecoration(
+          borderRadius: const BorderRadius.all(
             Radius.circular(
               20.0,
             ),
           ),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
               color: Colors.black54,
               blurRadius: 8.0,
             ),
           ],
-          color: Colors.white,
+          color: selectionState ? Colors.lightGreen : Colors.white,
         ),
         child: Padding(
           padding: const EdgeInsets.all(18.0),
@@ -75,7 +87,7 @@ class _DeviceCardState extends State<DeviceCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.deviceName,
+                deviceName,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 22.0,
@@ -90,6 +102,5 @@ class _DeviceCardState extends State<DeviceCard> {
         ),
       ),
     );
-    ;
   }
 }
