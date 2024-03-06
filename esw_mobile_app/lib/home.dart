@@ -1,5 +1,6 @@
 import "dart:developer";
 import "package:esw_mobile_app/constants.dart";
+import "package:esw_mobile_app/data_screen.dart";
 import 'package:esw_mobile_app/scan_device_list.dart';
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
@@ -21,9 +22,19 @@ class _HomePageState extends State<HomePage> {
   bool isScanning = false;
   bool isConnecting = false;
   bool isConnected = false;
+
+  bool deviceSelected = false;
+  int selectedIdx = -1;
+  String connectedDeviceName = "";
   String connectedDeviceId = "";
-  String connectedServiceId = "";
-  bool allBleConnected = false;
+  List<Uuid> connectedDeviceServices = [];
+
+  List<Service> deviceBLEServices = [];
+  late Service serviceBLE;
+  late Characteristic characteristicBLE;
+  bool foundService = false;
+  bool foundCharacteristic = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,7 +121,7 @@ class _HomePageState extends State<HomePage> {
               deviceStates: deviceStates,
               onPressConnect: startConnecting,
               onPressProceed: onPressProceed,
-              allBleConnected: allBleConnected,
+              isConnected: isConnected,
             ),
           ],
         ),
@@ -131,6 +142,7 @@ class _HomePageState extends State<HomePage> {
   void startScan() async {
     log("Starting scan for bluetooth devices!");
     _requestPermissions();
+    flutterReactiveBle.initialize();
     flutterReactiveBle.scanForDevices(withServices: [], scanMode: ScanMode.lowLatency).listen((device) {
       if (!device.name.startsWith("ESP32_Sensor")) return;
       recogDevice([
@@ -156,34 +168,97 @@ class _HomePageState extends State<HomePage> {
 
   void resetBLE() {
     setState(() {
-      scannedDevices.clear();
-      deviceStates = [];
       flutterReactiveBle.deinitialize();
+
+      scannedDevices = [];
+      deviceStates = [];
       isScanning = false;
-      allBleConnected = false;
       isConnecting = false;
       isConnected = false;
+      selectedIdx = -1;
+      connectedDeviceId = "";
+      connectedDeviceName = "";
+      connectedDeviceServices = [];
+      deviceBLEServices = [];
+      foundService = false;
+      foundCharacteristic = false;
     });
   }
 
   void startConnecting() {
-    isConnecting = true;
-    for (int idx = 0; idx < deviceStates.length; idx++) {
-      if (deviceStates[idx] == DeviceState.selected) {
-        deviceStates[idx] = DeviceState.connecting;
-        connectToDevice(scannedDevices[idx][1], scannedDevices[idx][2], idx);
+    setState(() {
+      isConnecting = true;
+      for (int idx = 0; idx < deviceStates.length; idx++) {
+        if (deviceStates[idx] == DeviceState.selected) {
+          deviceStates[idx] = DeviceState.connecting;
+          connectToDevice(scannedDevices[idx][1], scannedDevices[idx][2], idx);
+          break;
+        }
       }
+    });
+  }
+
+  Future<void> onPressProceed() async {
+    log("Proceeding to fetch from $connectedDeviceName");
+    await flutterReactiveBle.discoverAllServices(connectedDeviceId);
+    deviceBLEServices = await flutterReactiveBle.getDiscoveredServices(connectedDeviceId);
+    for (var ser in deviceBLEServices) {
+      if (ser.id.toString() == serviceUuid) {
+        serviceBLE = ser;
+        foundService = true;
+        for (var char in ser.characteristics) {
+          if (char.id.toString() == characteristicUuid) {
+            foundCharacteristic = true;
+            characteristicBLE = char;
+            break;
+          }
+        }
+        break;
+      }
+    }
+    if (!foundService || !foundCharacteristic) {
+      log("Characteristic not found!");
+      return;
+    }
+    log("Found characteristic!");
+    startDataScreen();
+  }
+
+  void startDataScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DataScreen(
+          fetchDataFromBLEFile: fetchDataFromBLEFile,
+          connectedDeviceId: connectedDeviceId,
+          connectedDeviceName: connectedDeviceName,
+          connectedDeviceServices: connectedDeviceServices,
+        ),
+      ),
+    );
+  }
+
+  dynamic fetchDataFromBLEFile(String filePath) async {
+    log("Hello ji");
+    if (foundService && foundCharacteristic) {
+      final characteristic = QualifiedCharacteristic(characteristicId: characteristicBLE.id, serviceId: serviceBLE.id, deviceId: connectedDeviceId);
+      flutterReactiveBle.subscribeToCharacteristic(characteristic).listen((dataBytes) {
+        // code to handle incoming data
+        String data = String.fromCharCodes(dataBytes);
+        log("Received: $data");
+      }, onError: (dynamic error) {
+        // code to handle errors
+      });
+      sendNotif(filePath);
     }
   }
 
-  void onPressProceed() {
-    for (int idx = 0; idx < deviceStates.length; idx++) {
-      if (deviceStates[idx] == DeviceState.connected) {
-        connectedDeviceId = scannedDevices[idx][1];
-        connectedServiceId = scannedDevices[idx][2];
-      }
-    }
-    log("To fetch data from $connectedDeviceId : $connectedServiceId");
+  void sendNotif(String data) async {
+    log("Sending $data");
+    List<int> bytes = 'a'.codeUnits;
+
+    final characteristic = QualifiedCharacteristic(characteristicId: characteristicBLE.id, serviceId: serviceBLE.id, deviceId: connectedDeviceId);
+    await flutterReactiveBle.writeCharacteristicWithoutResponse(characteristic, value: bytes);
   }
 
   void connectToDevice(String id, List<Uuid> serviceUuids, int deviceIndex) {
@@ -215,13 +290,10 @@ class _HomePageState extends State<HomePage> {
       log("Device $id connected!");
       setState(() {
         deviceStates[deviceIndex] = DeviceState.connected;
-        allBleConnected = true;
-        for (var element in deviceStates) {
-          if (element != DeviceState.connected && element != DeviceState.unselected) {
-            allBleConnected = false;
-            break;
-          }
-        }
+        isConnected = true;
+        connectedDeviceName = scannedDevices[deviceIndex][0];
+        connectedDeviceId = scannedDevices[deviceIndex][1];
+        connectedDeviceServices = scannedDevices[deviceIndex][2];
       });
     }, onError: (dynamic error) {
       log(error.toString());
@@ -248,7 +320,9 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       if (deviceStates[index] == DeviceState.selected) {
         deviceStates[index] = DeviceState.unselected;
+        deviceSelected = false;
       } else {
+        deviceSelected = true;
         for (int i = 0; i < deviceStates.length; i++) {
           deviceStates[i] = i == index ? DeviceState.selected : DeviceState.unselected;
         }

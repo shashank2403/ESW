@@ -50,13 +50,13 @@ class ConnectButton extends StatelessWidget {
     required this.deviceStates,
     required this.onPressConnect,
     required this.onPressProceed,
-    required this.allBleConnected,
+    required this.isConnected,
   });
 
   final List<DeviceState> deviceStates;
   final Function() onPressConnect;
   final Function() onPressProceed;
-  final bool allBleConnected;
+  final bool isConnected;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +69,7 @@ class ConnectButton extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 60.0),
         child: GestureDetector(
-          onTap: allBleConnected ? onPressProceed : onPressConnect,
+          onTap: isConnected ? onPressProceed : onPressConnect,
           child: Container(
             height: 70,
             width: 50,
@@ -79,7 +79,7 @@ class ConnectButton extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                allBleConnected ? "Proceed" : "Connect",
+                isConnected ? "Proceed" : "Connect",
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
