@@ -4,6 +4,8 @@ import "package:flutter/material.dart";
 import "package:flutter_reactive_ble/flutter_reactive_ble.dart";
 import "package:intl/intl.dart";
 
+import "data_page_view.dart";
+
 class DataScreen extends StatefulWidget {
   const DataScreen({super.key, required this.fetchDataFromBLEFile, required this.connectedDeviceId, required this.connectedDeviceName, required this.connectedDeviceServices});
 
@@ -113,37 +115,40 @@ class _DataScreenState extends State<DataScreen> {
                   height: 10,
                 ),
                 GestureDetector(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          width: 2.5,
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          50.0,
-                        ),
-                        color: Colors.lightBlue,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        width: 2.5,
                       ),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 20.0,
-                          vertical: 15.0,
-                        ),
-                        child: Center(
-                          child: Text(
-                            "Fetch data",
-                            style: TextStyle(
-                              // color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+                      borderRadius: BorderRadius.circular(
+                        50.0,
+                      ),
+                      color: Colors.lightBlue,
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.0,
+                        vertical: 15.0,
+                      ),
+                      child: Center(
+                        child: Text(
+                          "Fetch data",
+                          style: TextStyle(
+                            // color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ),
-                    onTap: () async {
-                      log("Calling");
-                      widget.fetchDataFromBLEFile("Hello");
-                      log("Called");
-                    }),
+                  ),
+                  onTap: () async {
+                    widget.fetchDataFromBLEFile("Hello");
+                  },
+                ),
+                const SizedBox(
+                  height: 20,
+                ),
+                const DataPageView(),
               ],
             ),
           ),
@@ -166,7 +171,7 @@ class _DataScreenState extends State<DataScreen> {
     return DateFormat(DateFormat.YEAR_MONTH_DAY).format(obj);
   }
 
-  String _getDatedFileName(DateTime obj) {
-    return "";
-  }
+  // String _getDatedFileName(DateTime obj) {
+  //   return "";
+  // }
 }

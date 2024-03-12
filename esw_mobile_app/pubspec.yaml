@@ -14,11 +14,13 @@ dependencies:
   permission_handler: ^11.3.0
   uuid: ^4.3.3
   intl: ^0.19.0
+  fl_chart: ^0.66.2
+  fluttertoast: ^8.2.4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^3.0.1
 
 flutter:
   uses-material-design: true
