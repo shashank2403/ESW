@@ -1,5 +1,3 @@
-import "dart:developer";
-
 import "package:flutter/material.dart";
 import "package:flutter_reactive_ble/flutter_reactive_ble.dart";
 import "package:intl/intl.dart";
@@ -18,8 +16,6 @@ class DataScreen extends StatefulWidget {
 }
 
 class _DataScreenState extends State<DataScreen> {
-  //TODO: final, pass from home
-
   DateTime selectedDate = DateTime.now();
 
   @override

@@ -6,7 +6,6 @@ import "package:esw_mobile_app/utils.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_reactive_ble/flutter_reactive_ble.dart";
-import "package:permission_handler/permission_handler.dart";
 import 'function_widgets.dart';
 
 class HomePage extends StatefulWidget {
@@ -236,6 +235,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  //! BLE Dependent
   Future<void> getServicesAndCharacteristics(int selectedIdx) async {
     log("Getting ser and char from $connectedDeviceName");
 
@@ -244,7 +244,7 @@ class _HomePageState extends State<HomePage> {
       connectedDeviceId = scannedDevices[selectedIdx][1];
     });
     await flutterReactiveBle.discoverAllServices(connectedDeviceId);
-    List<Service> deviceServices = await flutterReactiveBle.getDiscoveredServices(connectedDeviceId);
+    // List<Service> deviceServices = await flutterReactiveBle.getDiscoveredServices(connectedDeviceId);
     foundCharacteristic = true;
     foundService = true;
     if (!foundService || !foundCharacteristic) {
@@ -275,9 +275,9 @@ class _HomePageState extends State<HomePage> {
 
   void startDataScreen() async {
     final QualifiedCharacteristic chars = QualifiedCharacteristic(characteristicId: currCharUuid, serviceId: currServiceUuid, deviceId: connectedDeviceId);
-    print("qualified ${chars.characteristicId.toString()}");
+    log("qualified ${chars.characteristicId.toString()}");
     var codes = await flutterReactiveBle.readCharacteristic(chars);
-    print(String.fromCharCodes(codes));
+    log(String.fromCharCodes(codes));
 
     // Navigator.push(
     //   context,
