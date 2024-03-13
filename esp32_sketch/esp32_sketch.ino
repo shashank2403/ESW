@@ -21,9 +21,12 @@ RTC_DS3231 rtc;
 String entry;
 const char* filePath = "/sensor_data.csv";
 
+static BLEUUID serviceUUID(SERVICE_UUID);
+static BLEUUID charUUID(CHARACTERISTIC_UUID);
+
+static BLECharacteristic* pCharacteristic = NULL;
+
 BLEServer* pServer = NULL;
-BLECharacteristic* pCharacteristic = NULL;
-BLEService* pService = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
@@ -36,24 +39,24 @@ void setup()
 void loop()
 {
 
+  Serial.println(deviceConnected);
+  Serial.println(oldDeviceConnected);
+  Serial.println();
 
   // disconnecting
   if (!deviceConnected && oldDeviceConnected) {
       delay(500); // give the bluetooth stack the chance to get things ready
       pServer->startAdvertising(); // restart advertising
-      pService->start();
-      Serial.println("start advertising");
+      Serial.println("disconnected start advertising");
       oldDeviceConnected = deviceConnected;
   }
 
   if (deviceConnected && !oldDeviceConnected) {
       // do stuff here on connecting
       oldDeviceConnected = deviceConnected;
+      Serial.println("start connecting");
   }
-  delay(1000);
-  digitalWrite(LED, HIGH);
-  delay(1000);
-  digitalWrite(LED, LOW);
+
   if (aht20.available()) {
     DateTime now = rtc.now();
     float temperature = aht20.getTemperature();
@@ -69,13 +72,16 @@ void loop()
 class ServerCallbacks: public BLEServerCallbacks {
   void onConnect(BLEServer* pServer)
   {
+    Serial.println("CONNECT CALLED");
     deviceConnected = true;
-    BLEDevice::startAdvertising();
+    digitalWrite(LED, HIGH);
   }
 
   void onDisconnect(BLEServer* pServer)
   {
+    Serial.println("DISCONNECTED CALLED");
     deviceConnected = false;
+    digitalWrite(LED, LOW);
   }
 };
 
@@ -83,35 +89,37 @@ class CharacteristicCallbacks: public BLECharacteristicCallbacks {
   void OnWrite(BLECharacteristic *pCharacteristic)
   {
     std::string value = pCharacteristic->getValue();
+    Serial.println("WRITE CALLED");
     for (int i = 0;i<value.length();i++)
       Serial.print(value[i]);
     Serial.println();
+    
   }
 };
 
 void init()
 {
-  //Start LED
+  // Start LED
   pinMode(LED, OUTPUT);
-  //Start Serial
+  // Start Serial
   Serial.begin(115200);
   while (!Serial)
     ;
 
-  //Start SD Card mount
+  // Start SD Card mount
   if (!SD.begin(5))
   {
     Serial.println("Card Mount Failed");
   }
 
-  //Start I2C with sensor
+  // Start I2C with sensor
   Wire.begin(); // Join I2C bus
   if (!aht20.begin()) {
     Serial.println("AHT20 not detected. Please check wiring. Freezing.");
   }
   Serial.println("AHT20 acknowledged.");
 
-  //Start RTC 
+  // Start RTC
   if (!rtc.begin()) {
     Serial.println("RTC module is NOT found");
     while (1);
@@ -120,33 +128,26 @@ void init()
 
   BLEDevice::init("ESP32_Sensor_1");
   pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new ServerCallbacks);
-  pService = pServer->createService(SERVICE_UUID);
+  pServer->setCallbacks(new ServerCallbacks());
+  BLEService *pService = pServer->createService(serviceUUID);
   
-
   pCharacteristic = pService->createCharacteristic(
-                                          CHARACTERISTIC_UUID,
+                                          charUUID,
                                           BLECharacteristic::PROPERTY_READ |
-                                          BLECharacteristic::PROPERTY_WRITE | 
-                                          BLECharacteristic::PROPERTY_NOTIFY |
-                                          BLECharacteristic::PROPERTY_INDICATE
+                                          BLECharacteristic::PROPERTY_WRITE
                                        );
 
-  pCharacteristic->setCallbacks(new CharacteristicCallbacks);
+  pCharacteristic->setCallbacks(new CharacteristicCallbacks());
 
   pCharacteristic->setValue("Hello World says Neil");
   pService->start();
-  // BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
-  pAdvertising->setMinPreferred(0x12);
-  BLEDevice::startAdvertising();
-  Serial.println("Characteristic defined! Now you can read it in your phone!");
-}
 
-void transferCSVData(String filePath)
-{
-  Serial.println("Transferring: filepath");
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(serviceUUID);
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinPreferred(0x06);
+  pAdvertising->setMinPreferred(0x12);
+  pAdvertising->start();
+  
+  Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
