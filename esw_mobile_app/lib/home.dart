@@ -244,9 +244,23 @@ class _HomePageState extends State<HomePage> {
       connectedDeviceId = scannedDevices[selectedIdx][1];
     });
     await flutterReactiveBle.discoverAllServices(connectedDeviceId);
-    // List<Service> deviceServices = await flutterReactiveBle.getDiscoveredServices(connectedDeviceId);
-    foundCharacteristic = true;
-    foundService = true;
+    foundCharacteristic = false;
+    foundService = false;
+    List<Service> deviceServices = await flutterReactiveBle.getDiscoveredServices(connectedDeviceId);
+
+    for (var serv in deviceServices) {
+      if (serv.id.toString() == serviceUuid) {
+        foundService = true;
+        for (var ch in serv.characteristics) {
+          if (ch.id.toString() == characteristicUuid) {
+            foundCharacteristic = true;
+            currCharUuid = ch.id;
+            break;
+          }
+        }
+        break;
+      }
+    }
     if (!foundService || !foundCharacteristic) {
       log("Characteristic not found!");
       return;
@@ -274,22 +288,25 @@ class _HomePageState extends State<HomePage> {
   // }
 
   void startDataScreen() async {
+    log(currCharUuid.toString());
+    log(currServiceUuid.toString());
+    log(connectedDeviceId.toString());
     final QualifiedCharacteristic chars = QualifiedCharacteristic(characteristicId: currCharUuid, serviceId: currServiceUuid, deviceId: connectedDeviceId);
     log("qualified ${chars.characteristicId.toString()}");
-    var codes = await flutterReactiveBle.readCharacteristic(chars);
-    log(String.fromCharCodes(codes));
+    // var codes = await flutterReactiveBle.readCharacteristic(chars);
+    // log(String.fromCharCodes(codes));
 
-    // Navigator.push(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => DataScreen(
-    //       fetchDataFromBLEFile: fetchDataFromBLEFile,
-    //       connectedDeviceId: connectedDeviceId,
-    //       connectedDeviceName: connectedDeviceName,
-    //       connectedDeviceServices: connectedDeviceServices,
-    //     ),
-    //   ),
-    // );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DataScreen(
+          fetchDataFromBLEFile: (String data) {},
+          connectedDeviceId: connectedDeviceId,
+          connectedDeviceName: connectedDeviceName,
+          connectedDeviceServices: [],
+        ),
+      ),
+    );
   }
 
   void deviceOnPressed(int index) {
