@@ -1,6 +1,7 @@
 import "dart:developer";
 
 import "package:flutter/material.dart";
+import "package:flutter_blue_plus/flutter_blue_plus.dart";
 
 class ScanDeviceList extends StatefulWidget {
   const ScanDeviceList({
@@ -10,7 +11,7 @@ class ScanDeviceList extends StatefulWidget {
     required this.deviceStates,
   });
 
-  final List<List<dynamic>> scannedDevices;
+  final List<ScanResult> scannedDevices;
   final List<DeviceState> deviceStates;
   final Function(int) deviceOnPressed;
   @override
@@ -42,10 +43,10 @@ class _ScanDeviceListState extends State<ScanDeviceList> {
                     setState(() {
                       widget.deviceOnPressed(index);
                     });
-                    log("Pressed ${widget.scannedDevices[index][1]}");
+                    log("Pressed ${widget.scannedDevices[index].device.remoteId}");
                   },
                   child: DeviceCard(
-                    deviceName: widget.scannedDevices[index][0],
+                    deviceName: widget.scannedDevices[index].device.advName,
                     selectionState: widget.deviceStates[index],
                   ),
                 ),

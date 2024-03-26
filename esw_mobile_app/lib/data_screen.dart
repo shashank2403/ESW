@@ -1,16 +1,15 @@
 import "package:flutter/material.dart";
-import "package:flutter_reactive_ble/flutter_reactive_ble.dart";
+import "package:flutter_blue_plus/flutter_blue_plus.dart";
 import "package:intl/intl.dart";
 
 import "data_page_view.dart";
 
 class DataScreen extends StatefulWidget {
-  const DataScreen({super.key, required this.fetchDataFromBLEFile, required this.connectedDeviceId, required this.connectedDeviceName, required this.connectedDeviceServices});
+  const DataScreen({super.key, required this.fetchDataFromBLEFile, required this.connectedDevice});
 
   final Function(String) fetchDataFromBLEFile;
-  final String connectedDeviceName, connectedDeviceId;
+  final BluetoothDevice connectedDevice;
 
-  final List<Uuid> connectedDeviceServices;
   @override
   State<DataScreen> createState() => _DataScreenState();
 }
@@ -45,7 +44,7 @@ class _DataScreenState extends State<DataScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      widget.connectedDeviceName,
+                      widget.connectedDevice.advName,
                     )
                   ],
                 ),
@@ -59,7 +58,7 @@ class _DataScreenState extends State<DataScreen> {
                     ),
                     const Spacer(),
                     Text(
-                      widget.connectedDeviceId,
+                      widget.connectedDevice.remoteId.toString(),
                     )
                   ],
                 ),

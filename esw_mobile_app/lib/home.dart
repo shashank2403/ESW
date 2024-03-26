@@ -1,11 +1,10 @@
 import "dart:developer";
+import "dart:io";
 import "package:esw_mobile_app/constants.dart";
-import "package:esw_mobile_app/data_screen.dart";
 import 'package:esw_mobile_app/scan_device_list.dart';
 import "package:esw_mobile_app/utils.dart";
-import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
-import "package:flutter_reactive_ble/flutter_reactive_ble.dart";
+import "package:flutter_blue_plus/flutter_blue_plus.dart";
 import 'function_widgets.dart';
 
 class HomePage extends StatefulWidget {
@@ -16,9 +15,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  FlutterReactiveBle flutterReactiveBle = FlutterReactiveBle();
-
-  List<List<dynamic>> scannedDevices = [];
+  List<ScanResult> scannedDevices = [];
   List<DeviceState> deviceStates = [];
   bool isScanning = false;
   bool isConnecting = false;
@@ -26,17 +23,13 @@ class _HomePageState extends State<HomePage> {
   bool deviceSelected = false;
   int selectedIdx = -1;
 
-  String connectedDeviceName = "";
-  String connectedDeviceId = "";
-
-  late Service serviceBLE;
-  late Uuid currServiceUuid = Uuid([]);
-  late Uuid currCharUuid = Uuid([]);
-
-  late Characteristic characteristicBLE;
   bool foundService = false;
   bool foundCharacteristic = false;
 
+  BluetoothDevice connectedDevice = BluetoothDevice(remoteId: const DeviceIdentifier(""));
+
+  late BluetoothCharacteristic characteristic;
+  late BluetoothService service;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,7 +115,7 @@ class _HomePageState extends State<HomePage> {
             ConnectButton(
               deviceStates: deviceStates,
               onPressConnect: connectToDevice,
-              onPressProceed: startDataScreen,
+              onPressProceed: deviceProceed,
               isConnected: isConnected,
             ),
           ],
@@ -131,182 +124,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void recogDevice(List<dynamic> deviceInfo) {
-    bool deviceExists = scannedDevices.any((element) => element[1] == deviceInfo[1]);
-    if (!deviceExists) {
-      if (scannedDevices.isNotEmpty) log(listEquals(scannedDevices[0], deviceInfo).toString());
-      setState(() {
-        scannedDevices.add(List.from(deviceInfo)); // Create a new list to avoid mutations
-      });
-    }
-  }
-
   void startScan() async {
     log("Starting scan for bluetooth devices!");
     requestPermissions();
-    flutterReactiveBle.initialize();
-    flutterReactiveBle.scanForDevices(withServices: [], scanMode: ScanMode.lowLatency).listen((device) {
-      if (!device.name.startsWith("ESP32_Sensor")) return;
-      recogDevice([
-        device.name,
-        device.id,
-        device.serviceUuids,
-      ]);
-    }, onError: (error) {
-      //code for handling error
-      log(error.toString());
-    });
+
+    log("fbp started");
+    var subscription = FlutterBluePlus.onScanResults.listen(
+      (results) {
+        if (results.isNotEmpty) {
+          ScanResult r = results.last; // the most recently found device
+          if (!r.advertisementData.advName.startsWith("ESP32_Sensor")) return;
+          log('${r.device.remoteId}: "${r.advertisementData.advName}" found!');
+          recogDevice(r);
+        }
+      },
+      onError: (e) => log(e),
+    );
+    FlutterBluePlus.cancelWhenScanComplete(subscription);
     setState(() {
       isScanning = true;
     });
-  }
-
-  void stopScan() {
-    setState(() {
-      isScanning = false;
-      deviceStates = List.filled(scannedDevices.length, DeviceState.unselected);
-    });
-  }
-
-  void resetBLE() {
-    setState(() {
-      flutterReactiveBle.deinitialize();
-
-      scannedDevices = [];
-      deviceStates = [];
-      isScanning = false;
-      isConnecting = false;
-      isConnected = false;
-      selectedIdx = -1;
-      connectedDeviceId = "";
-      connectedDeviceName = "";
-
-      foundService = false;
-      foundCharacteristic = false;
-    });
-  }
-
-  void connectToDevice() {
-    setState(() {
-      isConnecting = true;
-      deviceStates[selectedIdx] = DeviceState.connecting;
-    });
-
-    String id = scannedDevices[selectedIdx][1];
-    List<Uuid> serviceUuids = scannedDevices[selectedIdx][2];
-
-    log("Connecting to device $id");
-    for (Uuid uuid in serviceUuids) {
-      if (uuid.toString() == serviceUuid) {
-        currServiceUuid = uuid;
-        break;
-      }
-    }
-
-    flutterReactiveBle
-        .connectToAdvertisingDevice(
-      id: id,
-      withServices: [currServiceUuid],
-      prescanDuration: const Duration(seconds: 10),
-    )
-        .listen((ConnectionStateUpdate connectionState) {
-      setState(() {
-        switch (connectionState.connectionState) {
-          case DeviceConnectionState.disconnecting:
-            deviceStates[selectedIdx] = DeviceState.error;
-            break;
-          case DeviceConnectionState.connecting:
-            deviceStates[selectedIdx] = DeviceState.connecting;
-            break;
-          case DeviceConnectionState.connected:
-            deviceStates[selectedIdx] = DeviceState.connected;
-            break;
-          default:
-            deviceStates[selectedIdx] = DeviceState.connecting;
-        }
-      });
-    }, onDone: () {
-      log("Device $id connected!");
-
-      getServicesAndCharacteristics(selectedIdx);
-    }, onError: (dynamic error) {
-      log(error.toString());
-      deviceStates[selectedIdx] = DeviceState.error;
-    });
-  }
-
-  //! BLE Dependent
-  Future<void> getServicesAndCharacteristics(int selectedIdx) async {
-    log("Getting ser and char from $connectedDeviceName");
-
-    setState(() {
-      connectedDeviceName = scannedDevices[selectedIdx][0];
-      connectedDeviceId = scannedDevices[selectedIdx][1];
-    });
-    await flutterReactiveBle.discoverAllServices(connectedDeviceId);
-    foundCharacteristic = false;
-    foundService = false;
-    List<Service> deviceServices = await flutterReactiveBle.getDiscoveredServices(connectedDeviceId);
-
-    for (var serv in deviceServices) {
-      if (serv.id.toString() == serviceUuid) {
-        foundService = true;
-        for (var ch in serv.characteristics) {
-          if (ch.id.toString() == characteristicUuid) {
-            foundCharacteristic = true;
-            currCharUuid = ch.id;
-            break;
-          }
-        }
-        break;
-      }
-    }
-    if (!foundService || !foundCharacteristic) {
-      log("Characteristic not found!");
-      return;
-    }
-    log("Found characteristic!");
-    setState(() {
-      deviceStates[selectedIdx] = DeviceState.connected;
-      isConnected = true;
-    });
-    // startDataScreen();
-  }
-
-  // dynamic fetchDataFromBLEFile(String filePath) async {
-  //   if (foundService && foundCharacteristic) {
-  //     final characteristic = QualifiedCharacteristic(characteristicId: characteristicUuid as Uuid, serviceId: serviceUuid as Uuid, deviceId: connectedDeviceId);
-  //     flutterReactiveBle.subscribeToCharacteristic(characteristic).listen((dataBytes) {
-  //       // code to handle incoming data
-  //       String data = String.fromCharCodes(dataBytes);
-  //       log("Received: $data");
-  //     }, onError: (dynamic error) {
-  //       // code to handle errors
-  //     });
-  //     sendNotif(filePath);
-  //   }
-  // }
-
-  void startDataScreen() async {
-    log(currCharUuid.toString());
-    log(currServiceUuid.toString());
-    log(connectedDeviceId.toString());
-    final QualifiedCharacteristic chars = QualifiedCharacteristic(characteristicId: currCharUuid, serviceId: currServiceUuid, deviceId: connectedDeviceId);
-    log("qualified ${chars.characteristicId.toString()}");
-    // var codes = await flutterReactiveBle.readCharacteristic(chars);
-    // log(String.fromCharCodes(codes));
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => DataScreen(
-          fetchDataFromBLEFile: (String data) {},
-          connectedDeviceId: connectedDeviceId,
-          connectedDeviceName: connectedDeviceName,
-          connectedDeviceServices: [],
-        ),
-      ),
-    );
+    await FlutterBluePlus.startScan(withServices: [servUuid]);
   }
 
   void deviceOnPressed(int index) {
@@ -327,5 +165,137 @@ class _HomePageState extends State<HomePage> {
         }
       }
     });
+  }
+
+  void recogDevice(ScanResult deviceInfo) {
+    bool deviceExists = scannedDevices.any((element) => element.device.remoteId == deviceInfo.device.remoteId);
+    if (!deviceExists) {
+      setState(() {
+        scannedDevices.add(deviceInfo); // Create a new list to avoid mutations
+      });
+    }
+  }
+
+  void stopScan() {
+    setState(() {
+      isScanning = false;
+      deviceStates = List.filled(scannedDevices.length, DeviceState.unselected);
+    });
+  }
+
+  void resetBLE() {
+    setState(() {
+      FlutterBluePlus.stopScan();
+
+      scannedDevices = [];
+      deviceStates = [];
+      isScanning = false;
+      isConnecting = false;
+      isConnected = false;
+      log("Disconnecting ${connectedDevice.remoteId.toString()}");
+      connectedDevice.disconnect();
+      connectedDevice = BluetoothDevice(remoteId: const DeviceIdentifier(""));
+      foundService = false;
+      foundCharacteristic = false;
+      selectedIdx = -1;
+    });
+  }
+
+  void connectToDevice() async {
+    setState(() {
+      isConnecting = true;
+      deviceStates[selectedIdx] = DeviceState.connecting;
+    });
+
+    final device = scannedDevices[selectedIdx].device;
+    log("Connecting to device ${device.remoteId}: ${device.advName}");
+
+    var subscription = device.connectionState.listen(
+      (BluetoothConnectionState state) {
+        setState(
+          () {
+            switch (state) {
+              case BluetoothConnectionState.connected:
+                deviceStates[selectedIdx] = DeviceState.connected;
+                connectedDevice = device;
+                isConnected = true;
+                isConnecting = false;
+
+                break;
+              case BluetoothConnectionState.disconnected:
+                try {
+                  connectedDevice.connect();
+
+                  break;
+                } catch (e) {
+                  log(e.toString());
+                }
+                deviceStates[selectedIdx] = DeviceState.error;
+                connectedDevice = BluetoothDevice(remoteId: const DeviceIdentifier(""));
+                isConnected = false;
+                isConnecting = false;
+                break;
+              default:
+                deviceStates[selectedIdx] = DeviceState.connecting;
+                isConnecting = true;
+                isConnected = false;
+            }
+          },
+        );
+      },
+      onError: (error) {
+        log(error.toString());
+        deviceStates[selectedIdx] = DeviceState.error;
+        connectedDevice = BluetoothDevice(remoteId: const DeviceIdentifier(""));
+      },
+      cancelOnError: true,
+      onDone: () {
+        log("Device ${device.remoteId} connected!");
+        setState(() {
+          connectedDevice = device;
+          isConnected = true;
+          isConnecting = false;
+        });
+
+        //getcharandserv
+      },
+    );
+
+    device.cancelWhenDisconnected(subscription, delayed: true, next: true);
+    try {
+      await device.connect();
+    } catch (e) {
+      log("ERROR IN CONNECTING");
+      log(e.toString());
+    }
+    log(device.isConnected.toString());
+  }
+
+  void deviceProceed() async {
+    log("Proceeding");
+    log("Connected device ID: ${connectedDevice.remoteId.toString()}");
+    log("FBP says: ${FlutterBluePlus.connectedDevices.toString()}");
+    var device = FlutterBluePlus.connectedDevices[0];
+    await device.discoverServices();
+    log(device.servicesList.toString());
+    var serv = device.servicesList;
+    for (int i = 0; i < serv.length; i++) {
+      var element = serv[i];
+      if (element.serviceUuid.toString() != servUuid.toString()) continue;
+      print("SERVICE");
+      print(element.characteristics.toString());
+      print("CHARACTERISTIC");
+      var ch = element.characteristics[0];
+      print(ch.characteristicUuid.toString());
+      print(ch.properties.read);
+      print("NOTIFY: ${ch.isNotifying.toString()}");
+      await ch.setNotifyValue(true);
+      print("NOW NOTIFY: ${ch.isNotifying.toString()}");
+      var subscription = ch.lastValueStream.listen((event) {
+        log("VALUE! ${String.fromCharCodes(event)} ${event.length}");
+      });
+      device.cancelWhenDisconnected(subscription);
+      break;
+    }
   }
 }
