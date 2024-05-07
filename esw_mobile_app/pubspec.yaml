@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   google_maps_flutter: ^2.5.3
-  flutter_reactive_ble: ^5.3.1
   flutter_blue_plus: ^1.31.16
   permission_handler: ^11.3.0
   uuid: ^4.3.3

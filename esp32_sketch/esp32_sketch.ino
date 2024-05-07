@@ -36,12 +36,22 @@ void setup()
   init();
 }
 
+int a = 0;
 void loop()
 {
 
   Serial.println(deviceConnected);
   Serial.println(oldDeviceConnected);
   Serial.println();
+
+  pCharacteristic->setValue("Hello World says Neil");
+  pCharacteristic->notify();
+  pCharacteristic->notify(false);
+
+ 
+  // pCharacteristic->setValue("Hello world says voldemort");
+  // pCharacteristic->notify(true);
+  // pCharacteristic->notify(false);
 
   // disconnecting
   if (!deviceConnected && oldDeviceConnected) {
@@ -55,8 +65,13 @@ void loop()
       // do stuff here on connecting
       oldDeviceConnected = deviceConnected;
       Serial.println("start connecting");
+      pCharacteristic->setValue("AVADA KEDAVRA");
+      pCharacteristic->notify();
+      delay(10);
+      pCharacteristic->notify(false);
   }
 
+ 
   if (aht20.available()) {
     DateTime now = rtc.now();
     float temperature = aht20.getTemperature();
@@ -75,6 +90,8 @@ class ServerCallbacks: public BLEServerCallbacks {
     Serial.println("CONNECT CALLED");
     deviceConnected = true;
     digitalWrite(LED, HIGH);
+  
+
   }
 
   void onDisconnect(BLEServer* pServer)
@@ -94,6 +111,11 @@ class CharacteristicCallbacks: public BLECharacteristicCallbacks {
       Serial.print(value[i]);
     Serial.println();
     
+  }
+
+  void OnRead(BLECharacteristic *pCharacteristic)
+  {
+    Serial.println("READ CALLED");
   }
 };
 
@@ -129,25 +151,30 @@ void init()
   BLEDevice::init("ESP32_Sensor_1");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new ServerCallbacks());
-  BLEService *pService = pServer->createService(serviceUUID);
+  BLEService *pService = pServer->createService(SERVICE_UUID);
   
   pCharacteristic = pService->createCharacteristic(
-                                          charUUID,
-                                          BLECharacteristic::PROPERTY_READ |
-                                          BLECharacteristic::PROPERTY_WRITE
-                                       );
+    CHARACTERISTIC_UUID,
+    BLECharacteristic::PROPERTY_READ |
+    BLECharacteristic::PROPERTY_WRITE |
+    BLECharacteristic::PROPERTY_NOTIFY | 
+    BLECharacteristic::PROPERTY_INDICATE
+  );
 
-  pCharacteristic->setCallbacks(new CharacteristicCallbacks());
+  // Add CCCD descriptor
+  BLEDescriptor* pDescriptor = new BLEDescriptor(BLEUUID((uint16_t)0x2902));
+  pDescriptor->setValue("Notify/Indicate");
+  pCharacteristic->addDescriptor(pDescriptor);
 
-  pCharacteristic->setValue("Hello World says Neil");
+  // pCharacteristic->setCallbacks(new CharacteristicCallbacks());
   pService->start();
-
+ 
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(serviceUUID);
+  pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
   pAdvertising->setMinPreferred(0x06);
   pAdvertising->setMinPreferred(0x12);
-  pAdvertising->start();
-  
+  BLEDevice::startAdvertising();
+
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
