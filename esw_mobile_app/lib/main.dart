@@ -12,7 +12,7 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: const HomePage(),
+      home: HomePage(),
       theme: ThemeData.from(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color.fromRGBO(148, 43, 114, 1),
