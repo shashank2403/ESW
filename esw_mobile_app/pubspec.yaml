@@ -13,10 +13,12 @@ dependencies:
   permission_handler: ^11.3.0
   uuid: ^4.3.3
   intl: ^0.19.0
-  fl_chart: ^0.66.2
+
   fluttertoast: ^8.2.4
   device_info_plus: ^9.1.2
   http: ^1.2.1
+  html_unescape: ^2.0.0
+  fl_chart: ^0.67.0
 
 dev_dependencies:
   flutter_test:

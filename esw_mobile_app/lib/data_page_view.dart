@@ -1,10 +1,14 @@
+import 'package:esw_mobile_app/graphs.dart';
+import 'package:esw_mobile_app/utils.dart';
 import 'package:flutter/material.dart';
 
 class DataPageView extends StatefulWidget {
   const DataPageView({
     super.key,
+    required this.rawData,
   });
 
+  final String rawData;
   @override
   State<DataPageView> createState() => _DataPageViewState();
 }
@@ -13,6 +17,15 @@ class _DataPageViewState extends State<DataPageView> {
   PageController pageController = PageController(initialPage: 0);
 
   int currentPage = 0;
+  late List<Map<String, String>> data;
+  late Map<String, List<double>> featureSeries;
+
+  @override
+  void initState() {
+    super.initState();
+    data = getDataFromRaw(widget.rawData);
+    featureSeries = getSeries(data);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,27 +96,38 @@ class _DataPageViewState extends State<DataPageView> {
             )
           ],
         ),
+        const SizedBox(
+          height: 10,
+        ),
         SizedBox(
-          height: 100.0,
+          height: 700,
           child: PageView(
+            physics: const NeverScrollableScrollPhysics(),
             controller: pageController,
             onPageChanged: (pageIndex) {
               currentPage = pageIndex;
               setState(() {});
             },
             children: [
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Container(
-                  height: 100,
-                  color: Colors.brown,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Container(
-                  height: 100,
-                  color: Colors.brown,
+              SingleChildScrollView(child: getLatestDisplay(data)),
+              SingleChildScrollView(
+                child: Column(
+                  children: [
+                    for (var entry in dataPlots)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        child: SizedBox(
+                          width: 500,
+                          height: 300,
+                          child: LineChartWidget(
+                            displayData: featureSeries[entry]!,
+                            dataTitle: entry,
+                            dataUnit: plotUnits[dataPlots.indexOf(entry)],
+                            timeData: featureSeries["Time"]!,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],

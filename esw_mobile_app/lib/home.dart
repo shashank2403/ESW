@@ -1,16 +1,22 @@
 import "dart:developer";
 import "dart:io";
+import "package:esw_mobile_app/data_screen.dart";
 import "package:esw_mobile_app/themes.dart";
 import "package:flutter/material.dart";
 import 'package:http/http.dart' as http;
 
-class HomePage extends StatelessWidget {
-  HomePage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
-  final TextEditingController ssidController = TextEditingController(), pwdController = TextEditingController(), ipController = TextEditingController();
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final TextEditingController ipController = TextEditingController(text: "192.168.4.1");
 
   bool isConnected = false;
-
+  bool isChecking = false;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -59,7 +65,9 @@ class HomePage extends StatelessWidget {
                 height: 20,
               ),
               InkWell(
-                onTap: () => checkConnectivity(),
+                onTap: () async {
+                  checkConnectivity(ipController.text);
+                },
                 child: Container(
                   width: 300,
                   height: 60,
@@ -80,7 +88,71 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                 ),
-              )
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isChecking
+                            ? Colors.white
+                            : isConnected
+                                ? Colors.green
+                                : Colors.red),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        isChecking
+                            ? Icons.workspaces_outline
+                            : (isConnected)
+                                ? Icons.done
+                                : Icons.close,
+                        weight: 40,
+                        color: isChecking ? Colors.black : Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(
+                    width: 10,
+                  ),
+                  Text(isChecking ? "Checking" : (isConnected ? "Connected" : "Not connected")),
+                ],
+              ),
+              const SizedBox(height: 20),
+              if (isConnected)
+                InkWell(
+                  onTap: () async {
+                    await checkConnectivity(ipController.text);
+                    if (isConnected) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => DataScreen(ipAddress: ipController.text)),
+                      );
+                    }
+                  },
+                  child: Container(
+                    width: 300,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.pink,
+                      borderRadius: BorderRadius.circular(
+                        20,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "Start fetching data",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -94,20 +166,28 @@ class HomePage extends StatelessWidget {
     // log(connectivity.toString());
   }
 
-  Future<bool> checkConnectivity(String ipAddress) async {
+  Future<void> checkConnectivity(String ipAddress) async {
     try {
-      final response = await http.get(ipAddress);
+      setState(() {
+        isChecking = true;
+      });
+      log("Checking $ipAddress");
+      final response = await http.get(Uri.http(ipAddress, "")).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == HttpStatus.ok) {
-        print('Connected to $ipAddress');
-        return true;
+        log('Connected to $ipAddress');
+        setState(() {
+          isChecking = false;
+          isConnected = true;
+        });
       } else {
-        print('Failed to connect to $ipAddress. Status code: ${response.statusCode}');
-        return false;
+        throw Exception();
       }
     } catch (e) {
-      print('Error checking connectivity: $e');
-      return false;
+      setState(() {
+        isChecking = false;
+        isConnected = false;
+      });
     }
   }
 }
