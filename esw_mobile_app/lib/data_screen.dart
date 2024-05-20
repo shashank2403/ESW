@@ -1,21 +1,26 @@
 import "dart:convert";
 import "dart:developer";
+import "dart:io";
+import "package:csv/csv.dart";
 import "package:esw_mobile_app/utils.dart";
+import "package:file_picker/file_picker.dart";
+import "package:fluttertoast/fluttertoast.dart";
 import "package:html_unescape/html_unescape.dart";
 import "package:flutter/material.dart";
 import "package:http/http.dart" as http;
-import "data_page_view.dart";
+import "package:permission_handler/permission_handler.dart";
+import "package:esw_mobile_app/data_page_view.dart";
 
-class DataScreen extends StatefulWidget {
-  const DataScreen({super.key, required this.ipAddress});
+class SingleDataScreen extends StatefulWidget {
+  const SingleDataScreen({super.key, required this.ipAddress});
 
   final String ipAddress;
 
   @override
-  State<DataScreen> createState() => _DataScreenState();
+  State<SingleDataScreen> createState() => _SingleDataScreenState();
 }
 
-class _DataScreenState extends State<DataScreen> {
+class _SingleDataScreenState extends State<SingleDataScreen> {
   DateTime selectedDate = DateTime.now();
   bool isFetching = false;
   bool isFetched = false;
@@ -28,9 +33,7 @@ class _DataScreenState extends State<DataScreen> {
       floatingActionButton: isFetched
           ? FloatingActionButton(
               backgroundColor: Colors.green,
-              onPressed: () {
-                log("Export");
-              },
+              onPressed: () async => saveToCSVWithDirectoryPicker(rawData),
               child: const Padding(
                 padding: EdgeInsets.all(8.0),
                 child: Icon(
@@ -80,7 +83,7 @@ class _DataScreenState extends State<DataScreen> {
                       borderRadius: BorderRadius.circular(
                         20.0,
                       ),
-                      color: Colors.amber,
+                      color: const Color.fromARGB(255, 255, 220, 117),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -125,7 +128,7 @@ class _DataScreenState extends State<DataScreen> {
                       borderRadius: BorderRadius.circular(
                         50.0,
                       ),
-                      color: Colors.lightBlue,
+                      color: const Color.fromARGB(255, 104, 207, 255),
                     ),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(
@@ -161,10 +164,6 @@ class _DataScreenState extends State<DataScreen> {
                       ],
                     ),
                   )
-                else if (isFetched)
-                  DataPageView(
-                    rawData: rawData,
-                  )
                 else if (errorStatus)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 150.0),
@@ -187,6 +186,10 @@ class _DataScreenState extends State<DataScreen> {
                         ),
                       ],
                     ),
+                  )
+                else if (isFetched)
+                  DataPageView(
+                    rawData: rawData,
                   )
               ],
             ),
@@ -213,8 +216,8 @@ class _DataScreenState extends State<DataScreen> {
         isFetching = true;
         errorStatus = false;
       });
-      final response = await http.post(Uri.http(widget.ipAddress, ''), body: getDateString(selectedDate)).timeout(const Duration(seconds: 10));
-      if (response.statusCode != 200) {
+      final response = await http.post(Uri.http(widget.ipAddress, ''), body: "FETCH_SINGLE_DATA_${getDateString(selectedDate)}").timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200 || jsonDecode(response.body)["message"].toString() == "NO_DATA_FOUND") {
         throw Exception("Data not found");
       }
 
@@ -232,5 +235,60 @@ class _DataScreenState extends State<DataScreen> {
         isFetched = false;
       });
     }
+  }
+
+  Future<void> saveToCSVWithDirectoryPicker(String processedString) async {
+    try {
+      await Permission.manageExternalStorage.request();
+      final directoryPath = await FilePicker.platform.getDirectoryPath();
+
+      if (directoryPath != null) {
+        final selectedDirectory = Directory(directoryPath);
+        final fileName = await _getFileNameFromUser(context);
+        if (fileName != null) {
+          final file = File('${selectedDirectory.path}/$fileName.csv');
+          final csv = [
+            [processedString]
+          ];
+
+          await file.writeAsString(const ListToCsvConverter().convert(csv));
+          log('CSV file saved: $file');
+        } else {
+          log('No file name provided');
+        }
+      } else {
+        log('No directory selected');
+      }
+    } on PathAccessException {
+      Fluttertoast.showToast(msg: "Cannot save in chosen directory!");
+    }
+  }
+
+  Future<String?> _getFileNameFromUser(BuildContext context) async {
+    return await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: const Text('Enter File Name'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: 'File Name',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

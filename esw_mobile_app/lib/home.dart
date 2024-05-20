@@ -1,6 +1,7 @@
 import "dart:developer";
 import "dart:io";
 import "package:esw_mobile_app/data_screen.dart";
+import "package:esw_mobile_app/multidata_screen.dart";
 import "package:esw_mobile_app/themes.dart";
 import "package:flutter/material.dart";
 import 'package:http/http.dart' as http;
@@ -72,7 +73,7 @@ class _HomePageState extends State<HomePage> {
                   width: 300,
                   height: 60,
                   decoration: BoxDecoration(
-                    color: Colors.lightBlue,
+                    color: Colors.red,
                     borderRadius: BorderRadius.circular(
                       20,
                     ),
@@ -128,7 +129,7 @@ class _HomePageState extends State<HomePage> {
                     if (isConnected) {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => DataScreen(ipAddress: ipController.text)),
+                        MaterialPageRoute(builder: (context) => SingleDataScreen(ipAddress: ipController.text)),
                       );
                     }
                   },
@@ -136,14 +137,47 @@ class _HomePageState extends State<HomePage> {
                     width: 300,
                     height: 60,
                     decoration: BoxDecoration(
-                      color: Colors.pink,
+                      color: Colors.deepOrange,
                       borderRadius: BorderRadius.circular(
                         20,
                       ),
                     ),
                     child: const Center(
                       child: Text(
-                        "Start fetching data",
+                        "Fetch single data",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 7),
+              if (isConnected)
+                InkWell(
+                  onTap: () async {
+                    await checkConnectivity(ipController.text);
+                    if (isConnected) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => MultiDataScreen(ipAddress: ipController.text)),
+                      );
+                    }
+                  },
+                  child: Container(
+                    width: 300,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(
+                        20,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "Fetch  multiple data",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -160,21 +194,15 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void fetchData() async {
-    // // var connectivity = Connectivity();
-    // var li = await connectivity.checkConnectivity();
-    // log(connectivity.toString());
-  }
-
   Future<void> checkConnectivity(String ipAddress) async {
     try {
       setState(() {
         isChecking = true;
       });
+
       log("Checking $ipAddress");
       final response = await http.get(Uri.http(ipAddress, "")).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == HttpStatus.ok) {
+      if (response.statusCode == HttpStatus.ok && response.body == "ESP32_SENSOR_RESPONSE") {
         log('Connected to $ipAddress');
         setState(() {
           isChecking = false;
@@ -184,6 +212,7 @@ class _HomePageState extends State<HomePage> {
         throw Exception();
       }
     } catch (e) {
+      log(e.toString());
       setState(() {
         isChecking = false;
         isConnected = false;

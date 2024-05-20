@@ -1,6 +1,7 @@
 import 'package:esw_mobile_app/graphs.dart';
 import 'package:esw_mobile_app/utils.dart';
 import 'package:flutter/material.dart';
+import "package:esw_mobile_app/constants.dart";
 
 class DataPageView extends StatefulWidget {
   const DataPageView({
@@ -122,7 +123,7 @@ class _DataPageViewState extends State<DataPageView> {
                           child: LineChartWidget(
                             displayData: featureSeries[entry]!,
                             dataTitle: entry,
-                            dataUnit: plotUnits[dataPlots.indexOf(entry)],
+                            dataUnit: dataUnits[entry] ?? "",
                             timeData: featureSeries["Time"]!,
                           ),
                         ),

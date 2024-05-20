@@ -13,6 +13,6 @@ String readFile(fs::FS &fs, const char *path);
 void appendFile(fs::FS &fs, const char *path, const String& message);
 void writeFile(fs::FS &fs, const char *path, const String& message);
 void getDataEntry(const float& temperature, const float& humidity, const DateTime& now, String& entry);
-const char* getDatedFileName(const String& date);
+char* getDatedFileName(const String& date);
 String getDateString(const DateTime& now);
 #endif

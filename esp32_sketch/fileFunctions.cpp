@@ -67,7 +67,6 @@ void removeDir(fs::FS &fs, const char *path)
 
 void appendFile(fs::FS &fs, const char *path, const String& message)
 {
-  Serial.printf("Appending to file: %s\n", path);
 
   // Check if the file exists
   if (!fs.exists(path)) {
@@ -89,7 +88,7 @@ void appendFile(fs::FS &fs, const char *path, const String& message)
   }
   if (file.print(message))
   {
-    Serial.println("Message appended");
+
   }
   else
   {
@@ -110,7 +109,6 @@ String readFile(fs::FS &fs, const char *path) {
   Serial.println("Read from file:");
   while (file.available()) {
     String line = file.readStringUntil('\n');
-
     fileData += line;
     fileData += "\n"; // Add new line character
   }
@@ -139,7 +137,7 @@ void getDataEntry(const float& temperature, const float& humidity, const DateTim
   entry += '\n';
 }
 
-const char* getDatedFileName(const String& date) 
+char* getDatedFileName(const String& date) 
 {
   static char path[32]; // Static buffer to store the file path
   sprintf(path, "/DATAFILE_%s.csv", date.c_str());
