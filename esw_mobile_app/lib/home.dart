@@ -14,7 +14,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final TextEditingController ipController = TextEditingController(text: "192.168.4.1");
+  final TextEditingController ipController = TextEditingController(text: "");
 
   bool isConnected = false;
   bool isChecking = false;
