@@ -1,30 +1,48 @@
+import "dart:convert";
 import "dart:developer";
-
+import "dart:io";
+import "package:csv/csv.dart";
+import "package:esw_mobile_app/utils.dart";
+import "package:file_picker/file_picker.dart";
+import "package:fluttertoast/fluttertoast.dart";
+import "package:html_unescape/html_unescape.dart";
 import "package:flutter/material.dart";
-import "package:flutter_reactive_ble/flutter_reactive_ble.dart";
-import "package:intl/intl.dart";
+import "package:http/http.dart" as http;
+import "package:permission_handler/permission_handler.dart";
+import "package:esw_mobile_app/data_page_view.dart";
 
-import "data_page_view.dart";
+class SingleDataScreen extends StatefulWidget {
+  const SingleDataScreen({super.key, required this.ipAddress});
 
-class DataScreen extends StatefulWidget {
-  const DataScreen({super.key, required this.fetchDataFromBLEFile, required this.connectedDeviceId, required this.connectedDeviceName, required this.connectedDeviceServices});
+  final String ipAddress;
 
-  final Function(String) fetchDataFromBLEFile;
-  final String connectedDeviceName, connectedDeviceId;
-
-  final List<Uuid> connectedDeviceServices;
   @override
-  State<DataScreen> createState() => _DataScreenState();
+  State<SingleDataScreen> createState() => _SingleDataScreenState();
 }
 
-class _DataScreenState extends State<DataScreen> {
-  //TODO: final, pass from home
-
+class _SingleDataScreenState extends State<SingleDataScreen> {
   DateTime selectedDate = DateTime.now();
-
+  bool isFetching = false;
+  bool isFetched = false;
+  bool errorStatus = false;
+  var unescape = HtmlUnescape();
+  String rawData = "";
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: isFetched
+          ? FloatingActionButton(
+              backgroundColor: Colors.green,
+              onPressed: () async => saveToCSVWithDirectoryPicker(rawData),
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(
+                  Icons.save_alt_rounded,
+                  size: 30,
+                ),
+              ),
+            )
+          : null,
       appBar: AppBar(),
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -42,28 +60,14 @@ class _DataScreenState extends State<DataScreen> {
                 Row(
                   children: [
                     const Text(
-                      "Device name: ",
+                      "Device IP Address: ",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Spacer(),
                     Text(
-                      widget.connectedDeviceName,
-                    )
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Text(
-                      "Device ID: ",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      widget.connectedDeviceId,
+                      widget.ipAddress,
                     )
                   ],
                 ),
@@ -79,7 +83,7 @@ class _DataScreenState extends State<DataScreen> {
                       borderRadius: BorderRadius.circular(
                         20.0,
                       ),
-                      color: Colors.amber,
+                      color: const Color.fromARGB(255, 255, 220, 117),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -89,7 +93,7 @@ class _DataScreenState extends State<DataScreen> {
                       child: Row(
                         children: [
                           Text(
-                            _getFormattedDate(selectedDate),
+                            getFormattedDate(selectedDate),
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                             ),
@@ -114,7 +118,8 @@ class _DataScreenState extends State<DataScreen> {
                 const SizedBox(
                   height: 10,
                 ),
-                GestureDetector(
+                InkWell(
+                  onTap: fetchData,
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border.all(
@@ -123,7 +128,7 @@ class _DataScreenState extends State<DataScreen> {
                       borderRadius: BorderRadius.circular(
                         50.0,
                       ),
-                      color: Colors.lightBlue,
+                      color: const Color.fromARGB(255, 104, 207, 255),
                     ),
                     child: const Padding(
                       padding: EdgeInsets.symmetric(
@@ -141,14 +146,51 @@ class _DataScreenState extends State<DataScreen> {
                       ),
                     ),
                   ),
-                  onTap: () async {
-                    widget.fetchDataFromBLEFile("Hello");
-                  },
                 ),
                 const SizedBox(
                   height: 20,
                 ),
-                const DataPageView(),
+                if (isFetching)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 150.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.workspaces_outline),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        Text("Fetching data"),
+                      ],
+                    ),
+                  )
+                else if (errorStatus)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 150.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error,
+                          color: Colors.red,
+                        ),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        Text(
+                          "Data not found!",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (isFetched)
+                  DataPageView(
+                    rawData: rawData,
+                  )
               ],
             ),
           ),
@@ -167,11 +209,86 @@ class _DataScreenState extends State<DataScreen> {
     }
   }
 
-  String _getFormattedDate(DateTime obj) {
-    return DateFormat(DateFormat.YEAR_MONTH_DAY).format(obj);
+  void fetchData() async {
+    try {
+      setState(() {
+        isFetched = false;
+        isFetching = true;
+        errorStatus = false;
+      });
+      final response = await http.post(Uri.http(widget.ipAddress, ''), body: "FETCH_SINGLE_DATA_${getDateString(selectedDate)}").timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200 || jsonDecode(response.body)["message"].toString() == "NO_DATA_FOUND") {
+        throw Exception("Data not found");
+      }
+
+      setState(() {
+        isFetched = true;
+        isFetching = false;
+        errorStatus = false;
+        rawData = jsonDecode(response.body)["message"].toString();
+      });
+    } catch (e) {
+      log("exception ${e.toString()}");
+      setState(() {
+        isFetching = false;
+        errorStatus = true;
+        isFetched = false;
+      });
+    }
   }
 
-  // String _getDatedFileName(DateTime obj) {
-  //   return "";
-  // }
+  Future<void> saveToCSVWithDirectoryPicker(String processedString) async {
+    try {
+      await Permission.manageExternalStorage.request();
+      final directoryPath = await FilePicker.platform.getDirectoryPath();
+
+      if (directoryPath != null) {
+        final selectedDirectory = Directory(directoryPath);
+        final fileName = await _getFileNameFromUser(context);
+        if (fileName != null) {
+          final file = File('${selectedDirectory.path}/$fileName.csv');
+          final csv = [
+            [processedString]
+          ];
+
+          await file.writeAsString(const ListToCsvConverter().convert(csv));
+          log('CSV file saved: $file');
+        } else {
+          log('No file name provided');
+        }
+      } else {
+        log('No directory selected');
+      }
+    } on PathAccessException {
+      Fluttertoast.showToast(msg: "Cannot save in chosen directory!");
+    }
+  }
+
+  Future<String?> _getFileNameFromUser(BuildContext context) async {
+    return await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: const Text('Enter File Name'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: 'File Name',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

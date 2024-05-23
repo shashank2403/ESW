@@ -67,7 +67,17 @@ void removeDir(fs::FS &fs, const char *path)
 
 void appendFile(fs::FS &fs, const char *path, const String& message)
 {
-  Serial.printf("Appending to file: %s\n", path);
+
+  // Check if the file exists
+  if (!fs.exists(path)) {
+    Serial.printf("File %s doesn't exist, creating it...\n", path);
+    File file = fs.open(path, FILE_WRITE);
+    if (!file) {
+      Serial.println("Failed to create file");
+      return;
+    }
+    file.close();
+  }
   File file = fs.open(path, FILE_APPEND);
 
 
@@ -78,7 +88,7 @@ void appendFile(fs::FS &fs, const char *path, const String& message)
   }
   if (file.print(message))
   {
-    Serial.println("Message appended");
+
   }
   else
   {
@@ -87,25 +97,24 @@ void appendFile(fs::FS &fs, const char *path, const String& message)
   file.close();
 }
 
-void readFile(fs::FS &fs, const char *path)
-{
+String readFile(fs::FS &fs, const char *path) {
+  String fileData = "";
   Serial.printf("Reading file: %s\n", path);
-
   File file = fs.open(path);
-  if (!file)
-  {
+  if (!file) {
     Serial.println("Failed to open file for reading");
-    return;
+    return "NO_DATA_FOUND";
   }
 
-  Serial.print("Read from file: \n");
-  while (file.available())
-  {
-    Serial.write(file.read());
+  Serial.println("Read from file:");
+  while (file.available()) {
+    String line = file.readStringUntil('\n');
+    fileData += line;
+    fileData += "\n"; // Add new line character
   }
   file.close();
+  return fileData;
 }
-
 
 void getDataEntry(const float& temperature, const float& humidity, const DateTime& now, String& entry)
 {
@@ -126,5 +135,23 @@ void getDataEntry(const float& temperature, const float& humidity, const DateTim
   entry += ',';
   entry += String(humidity);
   entry += '\n';
+}
 
+char* getDatedFileName(const String& date) 
+{
+  static char path[32]; // Static buffer to store the file path
+  sprintf(path, "/DATAFILE_%s.csv", date.c_str());
+  return path;
+}
+
+String getDateString(const DateTime& now)
+{
+  String date = "";
+  date += String(now.year());
+  date += "_";
+  date += String(now.month());
+  date += "_";
+  date += String(now.day());
+  
+  return date;
 }
