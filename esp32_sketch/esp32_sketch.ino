@@ -21,7 +21,7 @@ unsigned long currentStamp = 0;
 
 bool wifiIsEnabled = false;
 bool wifiWasEnabled = false;
-const unsigned long wifiInterval = 60000;
+const unsigned long wifiInterval = 40000;
 unsigned long wifiStartMillis = 0;
 
 
