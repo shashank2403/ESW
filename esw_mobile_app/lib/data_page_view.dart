@@ -110,7 +110,9 @@ class _DataPageViewState extends State<DataPageView> {
               setState(() {});
             },
             children: [
+              //Latest data display
               SingleChildScrollView(child: getLatestDisplay(data)),
+              //Graph visualisation
               SingleChildScrollView(
                 child: Column(
                   children: [

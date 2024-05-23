@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+//Screen to display CSV file data after import
 class CSVDisplayScreen extends StatelessWidget {
   const CSVDisplayScreen({super.key, required this.title, required this.text});
 
